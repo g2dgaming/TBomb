@@ -2,6 +2,10 @@
 # -*- coding: UTF-8 -*-
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import shutil
 import sys
 import subprocess
@@ -179,9 +183,15 @@ def notifyen():
 def get_phone_info():
         target = []
         cc="91"
-        response=requests.get('http://127.0.0.1:8000/api/targets?key=FuckSociety', json={
-        'key': 'FuckSociety',
-        }).json()
+        params={
+        'key': os.getenv('key')
+        }
+        if len(sys.argv) > 1:
+            if sys.argv[1] == 'admin':
+                params['called_by_admin']='yes'    
+                
+        url=os.getenv('url')
+        response=requests.get('http://'+url+'/api/targets', json=params).json()
         if len(response) > 0:
             for obj in response:
                 target.append(obj['phone_number'])
@@ -199,19 +209,6 @@ def get_mail_info():
             continue
         return target
 
-
-def pretty_print(cc, target, success, failed):
-    requested = success+failed
-    mesgdcrt.SectionMessage("Bombing is in progress - Please be patient")
-    mesgdcrt.GeneralMessage(
-        "Please stay connected to the internet during bombing")
-    mesgdcrt.GeneralMessage("Target       : " + cc + " " + target)
-    mesgdcrt.GeneralMessage("Sent         : " + str(requested))
-    mesgdcrt.GeneralMessage("Successful   : " + str(success))
-    mesgdcrt.GeneralMessage("Failed       : " + str(failed))
-    mesgdcrt.WarningMessage(
-        "This tool was made for fun and research purposes only")
-    mesgdcrt.SuccessMessage("TBomb was created by SpeedX")
 
 
 def workernode(mode, cc, numbers, count, delay, max_threads):
@@ -246,7 +243,7 @@ def selectnode(mode="sms"):
         clr()
         check_intr()
 
-        max_limit = {"sms": 10, "call": 10000005, "mail": 3000000}
+        max_limit = {"sms": 1000, "call": 10000005, "mail": 3000000}
         cc, target = "", []
         if mode in ["sms", "call"]:
             cc, target = get_phone_info()
@@ -273,7 +270,7 @@ except FileNotFoundError:
 
 
 __VERSION__ = get_version()
-__CONTRIBUTORS__ = ['SpeedX', 't0xic0der', 'scpketer', 'Stefan']
+__CONTRIBUTORS__ = ['PyaasaHaiwan']
 
 ALL_COLORS = [Fore.GREEN, Fore.RED, Fore.YELLOW, Fore.BLUE,
               Fore.MAGENTA, Fore.CYAN, Fore.WHITE]
@@ -292,45 +289,12 @@ TBomb can be used for many purposes which incudes -
 TBomb is not intented for malicious uses.
 """
 
-parser = argparse.ArgumentParser(description=description,
-                                 epilog='Coded by SpeedX !!!')
-parser.add_argument("-sms", "--sms", action="store_true",
-                    help="start TBomb with SMS Bomb mode")
-parser.add_argument("-call", "--call", action="store_true",
-                    help="start TBomb with CALL Bomb mode")
-parser.add_argument("-mail", "--mail", action="store_true",
-                    help="start TBomb with MAIL Bomb mode")
-parser.add_argument("-ascii", "--ascii", action="store_true",
-                    help="show only characters of standard ASCII set")
-parser.add_argument("-u", "--update", action="store_true",
-                    help="update TBomb")
-parser.add_argument("-c", "--contributors", action="store_true",
-                    help="show current TBomb contributors")
-parser.add_argument("-v", "--version", action="store_true",
-                    help="show current TBomb version")
 
 
-if __name__ == "__main__":
-    args = parser.parse_args()
-    if args.ascii:
-        ASCII_MODE = True
-        mesgdcrt = MessageDecorator("stat")
-    if args.version:
-        print("Version: ", __VERSION__)
-    elif args.contributors:
-        print("Contributors: ", " ".join(__CONTRIBUTORS__))
-    elif args.update:
-        update()
-    elif args.mail:
-        selectnode(mode="mail")
-    elif args.call:
-        selectnode(mode="call")
-    elif args.sms:
-        selectnode(mode="sms")
-    else:
-        try:
-            selectnode("sms")
-        except KeyboardInterrupt:
-            mesgdcrt.WarningMessage("Received INTR call - Exiting...")
-            sys.exit()
-    sys.exit()
+if __name__ == "__main__":   
+    try:
+        selectnode("sms")
+    except KeyboardInterrupt:
+        mesgdcrt.WarningMessage("Received INTR call - Exiting...")
+        sys.exit()
+sys.exit()
